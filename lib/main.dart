@@ -14,19 +14,35 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  List<int> _selectedCategories =
+      List(); // Preserves a list with selected categoty Id's
+  bool _isLoading =
+      false; // We will use this to show a loading indicator when fetching posts
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Mozartec'),
         backgroundColor: Colors.blueAccent,
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.filter_list_sharp),
+            onPressed: () => openFilterDialog(),
+          ),
+        ],
       ),
-      body: ListView.builder(
-        itemCount: posts == null ? 0 : posts.length,
-        itemBuilder: (BuildContext context, int index) {
-          return buildPost(index); //Building the posts list view
-        },
-      ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(),
+            )
+          : ListView.builder(
+              itemCount: posts == null ? 0 : posts.length,
+              itemBuilder: (BuildContext context, int index) {
+                return buildPost(index); //Building the posts list view
+              },
+            ),
     );
   }
 
@@ -34,6 +50,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     this.getPosts();
+    this.getCategories();
   }
 
   Widget buildPost(int index) {
@@ -71,9 +88,27 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<String> getPosts() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     var res = await fetchPosts();
     setState(() {
       posts = res;
+      _isLoading = false;
+    });
+    return "Success!";
+  }
+
+  Future<String> getCategories() async {
+    var res = await fetchCategories();
+    setState(() {
+      categories = res;
+
+      // Just to confirm that we are getting the categories form the server
+      categories.forEach((element) {
+        print(element.toJson());
+      });
     });
     return "Success!";
   }
@@ -82,11 +117,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<List<wp.Post>> fetchPosts() async {
     var posts = wordPress.fetchPosts(
       postParams: wp.ParamsPostList(
-        context: wp.WordPressContext.view,
-        postStatus: wp.PostPageStatus.publish,
-        orderBy: wp.PostOrderBy.date,
-        order: wp.Order.desc,
-      ),
+          context: wp.WordPressContext.view,
+          postStatus: wp.PostPageStatus.publish,
+          orderBy: wp.PostOrderBy.date,
+          order: wp.Order.desc,
+          includeCategories: _selectedCategories),
       fetchAuthor: true,
       fetchFeaturedMedia: true,
       fetchComments: true,
@@ -94,5 +129,71 @@ class _MyHomePageState extends State<MyHomePage> {
       fetchTags: true,
     );
     return posts;
+  }
+
+  List<wp.Category> categories;
+  Future<List<wp.Category>> fetchCategories() async {
+    var cats = wordPress.fetchCategories(
+        params: wp.ParamsCategoryList(
+      hideEmpty: true,
+    ));
+
+    return cats;
+  }
+
+  openFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (
+        BuildContext context,
+      ) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0.0,
+          backgroundColor: Colors.white,
+          child: StatefulBuilder(
+            // We need the stateful builder since Dialog content are not affected by widget setState
+            builder: (BuildContext context, StateSetter setState) =>
+                ListView.builder(
+              itemCount: categories == null ? 0 : categories.length,
+              itemBuilder: (BuildContext context, int index) {
+                return buildCategory(
+                    index, setState); //Building the categories list view
+              },
+            ),
+          ),
+        );
+      },
+    ).then((value) =>
+        getPosts()); // Refresh posts after category filter has changed
+  }
+
+  Widget buildCategory(int index, StateSetter setState) {
+    var currentItem = categories[index];
+    return Container(
+      child: ListTile(
+        title: Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: 5.0,
+          ),
+          child: Text(currentItem.name),
+        ),
+        selected:
+            _selectedCategories.any((element) => element == currentItem.id),
+        isThreeLine: false,
+        onTap: () => setState(() => toggleSelection(currentItem)),
+        key: Key(currentItem.id.toString()),
+      ),
+    );
+  }
+
+  void toggleSelection(wp.Category currentItem) {
+    if (_selectedCategories.any((element) => element == currentItem.id)) {
+      _selectedCategories.remove(currentItem.id);
+    } else {
+      _selectedCategories.add(currentItem.id);
+    }
   }
 }

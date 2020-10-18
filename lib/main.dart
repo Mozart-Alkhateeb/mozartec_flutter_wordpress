@@ -62,7 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget buildImage(int index) {
     if (posts[index].featuredMedia == null) {
       return Image.network(
-        'https://mozartec.com/wp-content/uploads/2019/04/asp-dot-net-core.jpg',
+        'https://mozartec.com/wp-content/uploads/2020/10/mozartec-no-photo-available-icon.png',
       );
     }
     return Image.network(
